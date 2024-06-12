@@ -1,8 +1,9 @@
 import pool from "../config/db";
 import { generateToken } from "../utils/jwt";
 import { UserAuthModel } from "./userAuthModel";
+import { Role, User } from "./userInterfaces";
 
-import { User, UserModel } from "./userModel";
+import { UserModel } from "./userModel";
 import bcrypt from 'bcrypt';
 
 const SALT_ROUNDS = 10
@@ -35,11 +36,11 @@ export class UserService {
                 throw new Error('User not found');
             }
 
-            const isPasswordValid = await UserAuthModel.verifyPassword(password, authUser.password_hash);
+            const isPasswordValid = await UserAuthModel.verifyPassword(password, authUser.password_hash as string);
             if (!isPasswordValid) {
                 throw new Error('Invalid login details');
             }
-            const token = generateToken({ userId: authUser.user_id })
+            const token = generateToken({ userId: authUser.user_id as number, roles: authUser.roles as Role[]})
             await UserAuthModel.updateLastLogin(authUser.user_id as number)
             return token
         } catch (err) {
@@ -49,11 +50,32 @@ export class UserService {
 
     static async getUserById(id: number): Promise<User | null> {
         return await UserModel.findById(id);
-      }
+    }
 
     static async deleteUserById(id: number): Promise<void> {
-        await UserAuthModel.deleteAuthUserById(id)
-        await UserModel.deleteUserById(id)
-        return
+        try {
+            await UserAuthModel.deleteAuthUserById(id)
+            await UserModel.deleteUserById(id)
+            return
+        } catch (err) {
+            throw err
+        }
+    }
+
+    static async updateUserDetails(user: User): Promise<void> {
+        try {
+            await UserModel.updateUser(user)
+        } catch (err) {
+            throw err
+        }
+    }
+
+    static async updateUserPassword(newPassword: string, userId: number) {
+        try {
+            const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS)
+            await UserAuthModel.updatePassword(passwordHash, userId)
+        } catch (err) {
+            throw err
+        }
     }
 }

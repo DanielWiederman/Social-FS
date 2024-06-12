@@ -1,12 +1,6 @@
 import pool from "../config/db"
 import bcrypt from 'bcrypt'
-
-export interface UserAuth {
-    auth_id?: number
-    user_id?: number
-    password_hash: string
-    last_login: Date
-}
+import { User, UserAuth } from "./userInterfaces";
 
 export class UserAuthModel {
     static async create(userId: number, hashedPassword: string): Promise<UserAuthModel> {
@@ -16,9 +10,9 @@ export class UserAuthModel {
         return rows[0]    
     }
 
-    static async findByEmail(email: string):Promise<UserAuth | null> {
+    static async findByEmail(email: string):Promise<Partial<UserAuth> & Partial <User> | null> {
         const query = `
-        SELECT ua.user_id, ua.password_hash
+        SELECT ua.user_id, ua.password_hash, u.roles
         FROM users_auth ua
         JOIN users u ON ua.user_id = u.id
         where u.email = $1`
@@ -35,9 +29,13 @@ export class UserAuthModel {
         await pool.query(query, [userId])
     }
     
-
     static async deleteAuthUserById(userId: number): Promise<void> {
         const query = `DELETE FROM users_auth WHERE user_id = $1`
         await pool.query(query, [userId])
+    }
+
+    static async updatePassword(newPassword: string, userId: number): Promise<void> {
+        const query = `UPDATE users_auth SET password_hash = $1 WHERE user_id = $2`
+        await pool.query(query, [newPassword, userId])
     }
 }
